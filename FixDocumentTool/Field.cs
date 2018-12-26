@@ -11,5 +11,9 @@ namespace FixDocumentTool
         public string Name { get; set; }
 
         public string Required { get; set; }
+
+        public bool IsComponent { get; set; }
+
+        public bool IsGroup { get; set; }
     }
 }

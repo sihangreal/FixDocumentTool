@@ -11,5 +11,7 @@ namespace FixDocumentTool
         public string Name { get; set; }
 
         public List<Field> Fields { get; set; }
+
+        public List<Group> Groups { get; set; }
     }
 }

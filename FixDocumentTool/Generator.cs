@@ -66,7 +66,7 @@ namespace FixDocumentTool
                 GetGroups(xmlDoc);
 
                 GeneratorMessageCode(fileName);
-                GeneratorFieldCode(fileName);
+                GeneratorFieldClassCode(fileName);
                 GeneratorFieldTagCode(fileName);
                 GeneratorMessageClass(fileName);
                 GeneratorMessageFactory(fileName);
@@ -181,9 +181,11 @@ namespace FixDocumentTool
                 sb.Append("{" + ENTER);
                 #endregion
 
+                #region 类注释
                 sb.Append(SPACE4+"/// <summary>"+ENTER);
                 sb.Append(SPACE4+"/// MsgType = "+QUOTATION + message.MsgType + QUOTATION + ENTER);
                 sb.Append(SPACE4+"/// </summary>"+ENTER);
+                #endregion
 
                 #region 类名
                 sb.Append(SPACE4 + "public class " + message.Name + " : Message" + ENTER);
@@ -195,12 +197,10 @@ namespace FixDocumentTool
                 #region 构造函数
                 //构造函数 1
                 sb.Append(SPACE8 + "#region 构造函数" + ENTER);
-
                 sb.Append(SPACE8 + "public " + message.Name + "() : base()" + ENTER);
                 sb.Append(SPACE8 + "{" + ENTER);
                 sb.Append(SPACE12 + "this.Header.SetField(new QuickFix.Fields.MsgType(" + QUOTATION + message.MsgType + QUOTATION + "));" + ENTER);
                 sb.Append(SPACE8 + "}" + DOUBLEENTER);
-
                 //构造函数 2
                 List<Field> fieldList = message.Fields.Where(v => v.Required.Equals("Y")).ToList();
                 if (fieldList.Count > 0)
@@ -208,16 +208,37 @@ namespace FixDocumentTool
                     sb.Append(SPACE8 + "public " + message.Name + "(" + ENTER);
                     foreach (Field field in fieldList)
                     {
-                        sb.Append(SPACE16 + "QuickFix.Fields." + field.Name + SPACE + GetVariable(field.Name) + "," + ENTER);
+                        if(field.IsComponent)
+                        {
+                            Component comp = GetComponentByName(field.Name);
+                            foreach(Field cfield in comp.Fields.Where(v=>v.Required.Equals("Y")))
+                            {
+                                sb.Append(SPACE16 + "QuickFix.Fields." + cfield.Name + SPACE + GetVariable(cfield.Name) + "," + ENTER);
+                            }
+                        }
+                        else
+                        {
+                            sb.Append(SPACE16 + "QuickFix.Fields." + field.Name + SPACE + GetVariable(field.Name) + "," + ENTER);
+                        }
                     }
                     sb.Remove(sb.Length - 2, 1);
                     sb.Append(SPACE8 + ") : this()" + ENTER);
                     sb.Append(SPACE8 + "{" + ENTER);
                     foreach (Field field in fieldList)
                     {
-                        sb.Append(SPACE12 + "this." + field.Name + " = " + GetVariable(field.Name) + ";" + ENTER);
+                        if(field.IsComponent)
+                        {
+                            Component comp = GetComponentByName(field.Name);
+                            foreach (Field cfield in comp.Fields.Where(v => v.Required.Equals("Y")))
+                            {
+                                sb.Append(SPACE12 + "this." + cfield.Name + " = " + GetVariable(cfield.Name) + ";" + ENTER);
+                            }
+                        }
+                        else
+                        {
+                            sb.Append(SPACE12 + "this." + field.Name + " = " + GetVariable(field.Name) + ";" + ENTER);
+                        }
                     }
-                    //sb.Remove(sb.Length - 1, 1);
                     sb.Append(SPACE8 + "}" + DOUBLEENTER);
                 }
                 sb.Append(SPACE8 + "#endregion" + DOUBLEENTER);
@@ -227,38 +248,49 @@ namespace FixDocumentTool
                 sb.Append(SPACE8 + "#region 字段属性" + ENTER);
                 foreach (Field field in message.Fields)
                 {
-                    GeneratorCode(ref sb, field,false);
+                    GeneratorFeildCode(ref sb, field,false);
                 }
+                sb.Append(SPACE8 + "#endregion" + DOUBLEENTER);
                 #endregion
 
-
-                sb.Append(SPACE8 + "#endregion" + DOUBLEENTER);
-
-                //group 放到最后处理 找出是group的field
-
+                #region group 放到最后处理 找出是field是group的 包括 componet 里面的 group
                 sb.Append(SPACE8 + "#region Group内部类" + ENTER);
-                List<Group> groupList = new List<Group>();
-                foreach (var field in message.Fields)
+
+                var groupList = message.Groups;
+                message.Fields.ForEach((v)=> 
                 {
-                    var group = _groups.Where(v => v.Name.Equals(field.Name)).FirstOrDefault();
-                    if (group == null)
-                        continue;
-                    groupList.Add(group);
-                }
-                GeneratorGroup(ref sb, groupList,false);
+                    if(v.IsComponent)
+                    {
+                        Component comp = GetComponentByName(v.Name);
+                        foreach (var group in comp.Groups)
+                        {
+                            if(!groupList.Contains(group))
+                            {
+                                groupList.Add(group);
+                            }
+                        } 
+                    }
+                });
+
+                GeneratorGroup(ref sb, message.Groups,false);
+                sb.Append(SPACE8 + "#endregion" + DOUBLEENTER);
+                #endregion
 
                 sb.Append(SPACE8 + "#endregion" + DOUBLEENTER);
-
                 sb.Append(SPACE4 + "}" + ENTER);
-
                 sb.Append("}" + ENTER);
 
                 CreateCsFile(sb, fileName, message.Name);
-
                 sb.Clear();
             }
         }
 
+        /// <summary>
+        /// 生成Group内部类方法
+        /// </summary>
+        /// <param name="sb"></param>
+        /// <param name="groupList"></param>
+        /// <param name="isIndent"></param>
         private void GeneratorGroup(ref StringBuilder sb, List<Group> groupList, bool isIndent)
         {
             string indent = "";
@@ -299,7 +331,7 @@ namespace FixDocumentTool
                 //Group 字段属性
                 foreach (Field gfield in group.Fields)
                 {
-                    GeneratorCode(ref sb, gfield,true);
+                    GeneratorFeildCode(ref sb, gfield,true);
                 }
                 if (group.Groups != null && group.Groups.Count > 0)
                 {
@@ -317,7 +349,7 @@ namespace FixDocumentTool
         /// </summary>
         /// <param name="sb"></param>
         /// <param name="field"></param>
-        private void GeneratorCode(ref StringBuilder sb, Field field, bool isIndent)
+        private void GeneratorFeildCode(ref StringBuilder sb, Field field, bool isIndent)
         {
             string indent = "";
             if (isIndent)
@@ -330,14 +362,13 @@ namespace FixDocumentTool
             if (baseField != null)
             {
                 string tag = baseField.Number;
-                sb.Append("tag = " + tag);
+                sb.Append(field.Name+ " tag = " + tag);
                 if (field.Required.Equals("Y"))
                     sb.Append(" 必填");
             }
             sb.Append(ENTER);
 
-            Component componet = GetComponentByName(field.Name);
-            if (componet == null)
+            if (field.IsComponent == false)
             {
                 sb.Append(SPACE8 + indent + "public QuickFix.Fields." + field.Name + SPACE + field.Name + ENTER);
                 sb.Append(SPACE8 + indent + "{" + ENTER);
@@ -379,17 +410,12 @@ namespace FixDocumentTool
             }
             else
             {
+                Component componet = GetComponentByName(field.Name);
                 foreach (Field cfied in componet.Fields)
                 {
-                    GeneratorCode(ref sb, cfied,true);
-                    Group group = GetGroupByName(cfied.Name);
-                    if (group != null)
-                    {
-                        GeneratorCode(ref sb, cfied, true);
-                    }
+                    GeneratorFeildCode(ref sb, cfied,false);
                 }
             }
-
         }
 
         /// <summary>
@@ -398,7 +424,7 @@ namespace FixDocumentTool
         /// <param name="fileName"></param>
         /// <param name="baseFileds"></param>
         /// <returns></returns>
-        private void GeneratorFieldCode(string fileName)
+        private void GeneratorFieldClassCode(string fileName)
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("// This is a generated file.  Don't edit it directly!" + DOUBLEENTER);
@@ -464,6 +490,28 @@ namespace FixDocumentTool
         }
 
         /// <summary>
+        /// 获取feild类型
+        /// </summary>
+        /// <param name="nodeList"></param>
+        /// <returns></returns>
+        public List<Field> GetFeilds(XmlNodeList nodeList)
+        {
+            List<Field> fields = new List<Field>();
+            foreach (XmlNode node in nodeList)
+            {
+                Field field = new Field();
+                field.Name = node.Attributes["name"].Value == null ? "" : node.Attributes["name"].Value;
+                field.Required = node.Attributes["required"].Value == null ? "" : node.Attributes["required"].Value;
+                if (node.Name.Equals("component"))
+                    field.IsComponent = true;
+                if (node.Name.Equals("group"))
+                    field.IsGroup = true;
+                fields.Add(field);
+            }
+            return fields;
+        }
+
+        /// <summary>
         /// 获取Groups
         /// </summary>
         /// <param name="xmlDoc"></param>
@@ -487,35 +535,8 @@ namespace FixDocumentTool
                 group.Name = node.Attributes["name"].Value == null ? "" : node.Attributes["name"].Value;
                 group.ParentName = node.ParentNode.Attributes["name"].Value == null ? "" : node.ParentNode.Attributes["name"].Value;
 
-                group.Fields = new List<Field>();
-                group.Groups = new List<Group>();
-                XmlNodeList childNodeList = node.ChildNodes;
-                foreach (XmlNode childNode in childNodeList)
-                {
-                    Field field = new Field();
-                    field.Name = childNode.Attributes["name"].Value == null ? "" : childNode.Attributes["name"].Value;
-                    field.Required = childNode.Attributes["required"].Value == null ? "" : childNode.Attributes["required"].Value;
-                    group.Fields.Add(field);
-
-                    if (childNode.Name.Equals("group"))
-                    {
-                        Group chilGroup = new Group();
-                        chilGroup.Name = childNode.Attributes["name"].Value == null ? "" : childNode.Attributes["name"].Value;
-                        chilGroup.ParentName = childNode.ParentNode.Attributes["name"].Value == null ? "" : childNode.ParentNode.Attributes["name"].Value;
-
-                        chilGroup.Fields = new List<Field>();
-                        foreach (XmlNode gNode in childNode.SelectNodes("field"))
-                        {
-                            Field gfiled = new Field();
-                            gfiled.Name = gNode.Attributes["name"].Value == null ? "" : gNode.Attributes["name"].Value;
-                            gfiled.Required = gNode.Attributes["required"].Value == null ? "" : gNode.Attributes["required"].Value;
-                            chilGroup.Fields.Add(gfiled);
-                        }
-                        group.Groups.Add(chilGroup);
-
-                        //chilGroup.Groups = GetGroups(childNode.ChildNodes);
-                    }
-                }
+                group.Fields = GetFeilds(node.ChildNodes);
+                group.Groups = GetGroups(node.SelectNodes("group"));
                 groups.Add(group);
             }
             return groups;
@@ -529,25 +550,26 @@ namespace FixDocumentTool
         private void GetComponent(XmlDocument xmlDoc)
         {
             XmlNodeList nodeList = xmlDoc.SelectNodes("/fix/components/component");
-            foreach (XmlNode node in nodeList)
+            _components= GetComponents(nodeList);
+        }
+
+        /// <summary>
+        /// 获取Componets
+        /// </summary>
+        /// <param name="nodeList"></param>
+        /// <returns></returns>
+        private List<Component> GetComponents(XmlNodeList nodeList)
+        {
+            List<Component> components = new List<Component>();
+            foreach(XmlNode node in nodeList)
             {
                 Component component = new Component();
                 component.Name = node.Attributes["name"].Value == null ? "" : node.Attributes["name"].Value;
-                //field 
-                component.Fields = new List<Field>();
-                XmlNodeList fieldNodeList = node.ChildNodes;
-                foreach (XmlNode childFieldNode in fieldNodeList)
-                {
-                    Field field = new Field();
-                    field.Name = childFieldNode.Attributes["name"].Value == null ? "" : childFieldNode.Attributes["name"].Value;
-                    field.Required = childFieldNode.Attributes["required"].Value == null ? "" : childFieldNode.Attributes["required"].Value;
-
-                    if (field.Name.Equals(component.Name))
-                        continue;
-                    component.Fields.Add(field);
-                }
-                _components.Add(component);
+                component.Fields = GetFeilds(node.ChildNodes);
+                component.Groups = GetGroups(node.SelectNodes("group"));
+                components.Add(component);
             }
+            return components;
         }
 
         /// <summary>
@@ -587,16 +609,7 @@ namespace FixDocumentTool
                 message.Name = node.Attributes["name"].Value == null ? "" : node.Attributes["name"].Value;
                 message.MsgType = node.Attributes["msgtype"].Value == null ? "" : node.Attributes["msgtype"].Value;
                 message.MsgCat = node.Attributes["msgcat"].Value == null ? "" : node.Attributes["msgcat"].Value;
-                message.Fields = new List<Field>();
-                message.Groups = new List<Group>();
-                XmlNodeList childNodeList = node.ChildNodes;
-                foreach (XmlNode childNode in childNodeList)
-                {
-                    Field field = new Field();
-                    field.Name = childNode.Attributes["name"].Value == null ? "" : childNode.Attributes["name"].Value;
-                    field.Required = childNode.Attributes["required"].Value == null ? "" : childNode.Attributes["required"].Value;
-                    message.Fields.Add(field);
-                }
+                message.Fields = GetFeilds(node.ChildNodes);
                 message.Groups = GetGroups(node.SelectNodes("group"));
                 _messages.Add(message);
             }
@@ -725,15 +738,12 @@ namespace FixDocumentTool
             {
                 string filePath = _outFixPath + @"\" + fileName;
                 Directory.CreateDirectory(filePath);
-
                 string file = _outFixPath + @"\" + fileName + @"\" + messageName + ".cs";
-
                 FileStream fs = new FileStream(file, FileMode.OpenOrCreate);
                 StreamWriter sw = new StreamWriter(fs);
                 sw.Write(sb);
                 sw.Flush();
                 sw.Close();
-                //fs.Close();
                 return true;
             }
             catch (Exception ex)
