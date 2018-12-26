@@ -541,8 +541,12 @@ namespace FixDocumentTool
                     Field field = new Field();
                     field.Name = childFieldNode.Attributes["name"].Value == null ? "" : childFieldNode.Attributes["name"].Value;
                     field.Required = childFieldNode.Attributes["required"].Value == null ? "" : childFieldNode.Attributes["required"].Value;
+
+                    if (field.Name.Equals(component.Name))
+                        continue;
                     component.Fields.Add(field);
                 }
+                _components.Add(component);
             }
         }
 
