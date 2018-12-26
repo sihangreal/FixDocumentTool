@@ -62,7 +62,7 @@ namespace FixDocumentTool
 
                 GetMessage(xmlDoc);
                 GetBaseFileds(xmlDoc);
-                GetComponent(xmlDoc);
+                GetComponents(xmlDoc);
                 GetGroups(xmlDoc);
 
                 GeneratorMessageCode(fileName);
@@ -128,7 +128,7 @@ namespace FixDocumentTool
                 sb.Append(SPACE16 + "}" + ENTER);
                 sb.Append(SPACE12 + "}" + DOUBLEENTER);
             }
-            sb.Append(SPACE12 + "return null;"+ENTER);
+            sb.Append(SPACE12 + "return null;" + ENTER);
             sb.Append(SPACE8 + "}" + ENTER);
 
             sb.Append(SPACE4 + "}" + ENTER);
@@ -182,9 +182,9 @@ namespace FixDocumentTool
                 #endregion
 
                 #region 类注释
-                sb.Append(SPACE4+"/// <summary>"+ENTER);
-                sb.Append(SPACE4+"/// MsgType = "+QUOTATION + message.MsgType + QUOTATION + ENTER);
-                sb.Append(SPACE4+"/// </summary>"+ENTER);
+                sb.Append(SPACE4 + "/// <summary>" + ENTER);
+                sb.Append(SPACE4 + "/// MsgType = " + QUOTATION + message.MsgType + QUOTATION + ENTER);
+                sb.Append(SPACE4 + "/// </summary>" + ENTER);
                 #endregion
 
                 #region 类名
@@ -208,10 +208,10 @@ namespace FixDocumentTool
                     sb.Append(SPACE8 + "public " + message.Name + "(" + ENTER);
                     foreach (Field field in fieldList)
                     {
-                        if(field.IsComponent)
+                        if (field.IsComponent)
                         {
                             Component comp = GetComponentByName(field.Name);
-                            foreach(Field cfield in comp.Fields.Where(v=>v.Required.Equals("Y")))
+                            foreach (Field cfield in comp.Fields.Where(v => v.Required.Equals("Y")))
                             {
                                 sb.Append(SPACE16 + "QuickFix.Fields." + cfield.Name + SPACE + GetVariable(cfield.Name) + "," + ENTER);
                             }
@@ -226,7 +226,7 @@ namespace FixDocumentTool
                     sb.Append(SPACE8 + "{" + ENTER);
                     foreach (Field field in fieldList)
                     {
-                        if(field.IsComponent)
+                        if (field.IsComponent)
                         {
                             Component comp = GetComponentByName(field.Name);
                             foreach (Field cfield in comp.Fields.Where(v => v.Required.Equals("Y")))
@@ -248,31 +248,14 @@ namespace FixDocumentTool
                 sb.Append(SPACE8 + "#region 字段属性" + ENTER);
                 foreach (Field field in message.Fields)
                 {
-                    GeneratorFeildCode(ref sb, field,false);
+                    GeneratorFeildCode(ref sb, field, false);
                 }
                 sb.Append(SPACE8 + "#endregion" + DOUBLEENTER);
                 #endregion
 
                 #region group 放到最后处理 找出是field是group的 包括 componet 里面的 group
                 sb.Append(SPACE8 + "#region Group内部类" + ENTER);
-
-                var groupList = message.Groups;
-                message.Fields.ForEach((v)=> 
-                {
-                    if(v.IsComponent)
-                    {
-                        Component comp = GetComponentByName(v.Name);
-                        foreach (var group in comp.Groups)
-                        {
-                            if(!groupList.Contains(group))
-                            {
-                                groupList.Add(group);
-                            }
-                        } 
-                    }
-                });
-
-                GeneratorGroup(ref sb, message.Groups,false);
+                GeneratorGroup(ref sb, GetGroupsFormMessage(message), false);
                 sb.Append(SPACE8 + "#endregion" + DOUBLEENTER);
                 #endregion
 
@@ -316,8 +299,8 @@ namespace FixDocumentTool
                 //{
                 //    sb.Append("Tags." + gfield.Name + ",");
                 //}
-                string firstField = group.Fields.Count > 0 ? ", Tags."+group.Fields[0].Name : "";
-                sb.Append("Tags."+ group.Name+firstField);
+                string firstField = group.Fields.Count > 0 ? ", Tags." + group.Fields[0].Name : "";
+                sb.Append("Tags." + group.Name + firstField);
                 sb.Append(", fieldOrder)" + ENTER);
                 sb.Append(SPACE12 + indent + "{" + ENTER);
                 sb.Append(SPACE12 + indent + "}" + DOUBLEENTER);
@@ -331,7 +314,7 @@ namespace FixDocumentTool
                 //Group 字段属性
                 foreach (Field gfield in group.Fields)
                 {
-                    GeneratorFeildCode(ref sb, gfield,true);
+                    GeneratorFeildCode(ref sb, gfield, true);
                 }
                 if (group.Groups != null && group.Groups.Count > 0)
                 {
@@ -357,12 +340,12 @@ namespace FixDocumentTool
                 indent = "    ";
             }
             //属性
-            sb.Append(SPACE8+ indent + "#region ");
+            sb.Append(SPACE8 + indent + "#region ");
             BaseField baseField = _baseFields.FirstOrDefault(v => v.Name.Equals(field.Name));
             if (baseField != null)
             {
                 string tag = baseField.Number;
-                sb.Append(field.Name+ " tag = " + tag);
+                sb.Append(field.Name + " tag = " + tag);
                 if (field.Required.Equals("Y"))
                     sb.Append(" 必填");
             }
@@ -390,8 +373,8 @@ namespace FixDocumentTool
                 //Get
                 sb.Append(SPACE8 + indent + "public QuickFix.Fields." + field.Name + " Get(QuickFix.Fields." + field.Name + " val)" + ENTER);
                 sb.Append(SPACE8 + indent + "{" + ENTER);
-                sb.Append(SPACE12+ indent + "GetField(val);" + ENTER);
-                sb.Append(SPACE12+ indent + "return val;" + ENTER);
+                sb.Append(SPACE12 + indent + "GetField(val);" + ENTER);
+                sb.Append(SPACE12 + indent + "return val;" + ENTER);
                 sb.Append(SPACE8 + indent + "}" + DOUBLEENTER);
 
                 //IsSet
@@ -413,7 +396,7 @@ namespace FixDocumentTool
                 Component componet = GetComponentByName(field.Name);
                 foreach (Field cfied in componet.Fields)
                 {
-                    GeneratorFeildCode(ref sb, cfied,false);
+                    GeneratorFeildCode(ref sb, cfied, false);
                 }
             }
         }
@@ -494,7 +477,7 @@ namespace FixDocumentTool
         /// </summary>
         /// <param name="nodeList"></param>
         /// <returns></returns>
-        public List<Field> GetFeilds(XmlNodeList nodeList)
+        private List<Field> GetFeilds(XmlNodeList nodeList)
         {
             List<Field> fields = new List<Field>();
             foreach (XmlNode node in nodeList)
@@ -516,17 +499,18 @@ namespace FixDocumentTool
         /// </summary>
         /// <param name="xmlDoc"></param>
         /// <returns></returns>
-        public void GetGroups(XmlDocument xmlDoc)
+        private void GetGroups(XmlDocument xmlDoc)
         {
-            XmlNodeList nodeList = xmlDoc.SelectNodes("/fix/messages/message/group");
-            _groups = GetGroups(nodeList);
+            var msgGroups = GetGroups(xmlDoc.SelectNodes("/fix/messages/message/group"));
+            var comGroups = GetGroups(xmlDoc.SelectNodes("/fix/components/component/group"));
+            _groups = msgGroups.Union(comGroups).ToList();
         }
 
         /// <summary>
         /// 获取Groups
         /// </summary>
         /// <param name="nodeList"></param>
-        public List<Group> GetGroups(XmlNodeList nodeList)
+        private List<Group> GetGroups(XmlNodeList nodeList)
         {
             List<Group> groups = new List<Group>();
             foreach (XmlNode node in nodeList)
@@ -537,6 +521,7 @@ namespace FixDocumentTool
 
                 group.Fields = GetFeilds(node.ChildNodes);
                 group.Groups = GetGroups(node.SelectNodes("group"));
+                group.Components = GetComponents(node.SelectNodes("component"));
                 groups.Add(group);
             }
             return groups;
@@ -547,10 +532,10 @@ namespace FixDocumentTool
         /// </summary>
         /// <param name="xmlDoc"></param>
         /// <returns></returns>
-        private void GetComponent(XmlDocument xmlDoc)
+        private void GetComponents(XmlDocument xmlDoc)
         {
             XmlNodeList nodeList = xmlDoc.SelectNodes("/fix/components/component");
-            _components= GetComponents(nodeList);
+            _components = GetComponents(nodeList);
         }
 
         /// <summary>
@@ -561,7 +546,7 @@ namespace FixDocumentTool
         private List<Component> GetComponents(XmlNodeList nodeList)
         {
             List<Component> components = new List<Component>();
-            foreach(XmlNode node in nodeList)
+            foreach (XmlNode node in nodeList)
             {
                 Component component = new Component();
                 component.Name = node.Attributes["name"].Value == null ? "" : node.Attributes["name"].Value;
@@ -774,7 +759,92 @@ namespace FixDocumentTool
             Component component = _components.FirstOrDefault(v => v.Name.Equals(name));
             return component;
         }
+        /// <summary>
+        /// 找出Message中所有的Group
+        /// </summary>
+        /// <param name="message"></param>
+        /// <returns></returns>
+        public List<Group> GetGroupsFormMessage(Message message)
+        {
+            var groupList = message.Groups;
+            foreach (Field field in message.Fields)
+            {
+                var tempList = GetGroupFormFeild(field);
+                groupList = groupList.Union(tempList).ToList();
+            };
+            return groupList;
+        }
 
+        /// <summary>
+        /// 找出Fiel中属于Group的
+        /// </summary>
+        /// <param name="field"></param>
+        /// <returns></returns>
+        public List<Group> GetGroupFormFeild(Field field)
+        {
+            var groupList = new List<Group>();
+            if (field.IsGroup)
+            {
+                Group grp = GetGroupByName(field.Name);
+                var tempList = GetGroupFormGroup(grp);
+                groupList = groupList.Union(tempList).ToList();
+            }
+            if (field.IsComponent)
+            {
+                Component comp = GetComponentByName(field.Name);
+                var tempList = GetGroupFormComponent(comp);
+                groupList = groupList.Union(tempList).ToList();
+            }
+            return groupList;
+        }
+
+
+        /// <summary>
+        /// 从Component得到Group
+        /// </summary>
+        /// <param name="componet"></param>
+        /// <returns></returns>
+        public List<Group> GetGroupFormComponent(Component componet)
+        {
+            var groupList = componet.Groups;
+            foreach (var field in componet.Fields)
+            {
+                GetGroupFormFeild(field);
+            }
+            foreach (var grp in componet.Groups)
+            {
+                var tempList = GetGroupFormGroup (grp);
+                groupList = groupList.Union(tempList).ToList();
+            }
+            groupList = groupList.Union(componet.Groups).ToList();
+            return groupList;
+        }
+
+        /// <summary>
+        /// 从Group得到Group
+        /// </summary>
+        /// <param name="group"></param>
+        /// <returns></returns>
+        public List<Group> GetGroupFormGroup(Group group)
+        {
+            var groupList = group.Groups;
+            foreach (var field in group.Fields)
+            {
+                var tempList = GetGroupFormFeild(field);
+                groupList = groupList.Union(tempList).ToList();
+            }
+            foreach(var comp in group.Components)
+            {
+                var tempList=GetGroupFormComponent(comp);
+                groupList = groupList.Union(tempList).ToList();
+            }
+            foreach(var grp in group.Groups)
+            {
+                var tempList = GetGroupFormGroup(grp);
+                groupList = groupList.Union(tempList).ToList();
+            }
+            return groupList;
+        }
         #endregion
     }
 }
